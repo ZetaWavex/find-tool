@@ -1,0 +1,13 @@
+name = "find-tool"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+# Durable Object 绑定（无需 KV/D1，WebSocket 实时通信）
+[[durable_objects]]
+name = "PHONE_ROOM"
+class_name = "PhoneRoom"
+
+# 迁移声明
+[[migrations]]
+tag = "v1"
+new_classes = ["PhoneRoom"]
