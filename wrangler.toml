@@ -1,32 +1,28 @@
+# Worker 基础配置（只写一次，不要重复）
 name = "find-tool"
 main = "src/index.ts"
 compatibility_date = "2024-09-25"
 
-# Durable Object 绑定（无需 KV/D1，WebSocket 实时通信）
-[[durable_objects]]
+# Durable Object 正确绑定格式
+[[durable_objects.bindings]]
 name = "PHONE_ROOM"
 class_name = "PhoneRoom"
 
-# 迁移声明
+# DO 迁移配置，移除非法字段
 [[migrations]]
 tag = "v1"
 new_classes = ["PhoneRoom"]
-name = "find-phone-relay"
-main = "src/index.ts"
-compatibility_date = "2024-09-25"
 
-# 自定义域名（可选，在 Cloudflare Dashboard 中配置）
-# routes = [
-#   { pattern = "find.yourdomain.com/*", zone_name = "yourdomain.com" }
-# ]
-
-# KV 命名空间绑定
-# 在 Cloudflare Dashboard → Workers → KV 中创建命名空间
-# 然后填入 id
+# KV 存储（按需启用）
 [[kv_namespaces]]
 binding = "KV"
 id = "YOUR_KV_NAMESPACE_ID"
 
-# 环境变量（建议在 GitHub Secrets 或 Cloudflare Dashboard 中设置敏感值）
+# 环境变量
 [vars]
 AUTH_TOKEN = "change-this-to-your-secret-token"
+
+# 自定义域名路由（按需取消注释）
+# routes = [
+#   { pattern = "shturl.cc/dJRtMlsWQj*", zone_name = "shturl.cc/W9Sj" }
+# ]
