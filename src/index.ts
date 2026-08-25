@@ -9,65 +9,52 @@
  *   POST /api/clear { phone }                       → 清除指定手机命令
  *   GET  /                                         → Web Dashboard
  */
-
 export interface Env {
   KV: KVNamespace;
   AUTH_TOKEN: string;
 }
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-
     // CORS
     if (method === 'OPTIONS') {
       return corsResponse(new Response(null, { status: 204 }));
     }
-
     try {
       // ===== API 路由 =====
-
       // POST /notify — 存储查找命令
       if (path === '/notify' && method === 'POST') {
         return await handleNotify(request, env);
       }
-
       // GET /pending?phone=xxx — 查询待执行命令
       if (path === '/pending' && method === 'GET') {
         return await handlePending(url, env);
       }
-
       // POST /ack — 确认命令已执行
       if (path === '/ack' && method === 'POST') {
         return await handleAck(request, env);
       }
-
       // ===== Dashboard API =====
-
       // GET /api/phones — 列出所有待执行手机
       if (path === '/api/phones' && method === 'GET') {
         return await handleListPhones(request, env);
       }
-
       // POST /api/clear — 清除指定手机命令
       if (path === '/api/clear' && method === 'POST') {
         return await handleClear(request, env);
       }
-
       // POST /api/clear-all — 清除所有命令
       if (path === '/api/clear-all' && method === 'POST') {
         return await handleClearAll(request, env);
       }
-
       // ===== Web Dashboard =====
       if (path === '/' && method === 'GET') {
         return new Response(DASHBOARD_HTML, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });
       }
-
       // 404
       return corsResponse(new Response(JSON.stringify({ error: 'Not Found' }), {
         status: 404,
@@ -81,16 +68,12 @@ export default {
     }
   },
 };
-
 // ===== 处理函数 =====
-
 async function handleNotify(request: Request, env: Env): Promise<Response> {
   const body = await request.json<{ target: string; action: string; duration?: number }>();
-
   if (!body.target || !body.action) {
     return corsResponse(jsonResponse({ success: false, error: '缺少 target 或 action' }, 400));
   }
-
   const key = `pending:${body.target}`;
   const command = {
     target: body.target,
@@ -98,52 +81,37 @@ async function handleNotify(request: Request, env: Env): Promise<Response> {
     duration: body.duration || 30,
     timestamp: Date.now(),
   };
-
   await env.KV.put(key, JSON.stringify(command), { expirationTtl: 300 });
-
   // 同时存入手机列表用于 Dashboard
   await env.KV.put(`phone:${body.target}`, String(Date.now()), { expirationTtl: 600 });
-
   return corsResponse(jsonResponse({ success: true, message: `已通知 ${body.target}` }));
 }
-
 async function handlePending(url: URL, env: Env): Promise<Response> {
   const phone = url.searchParams.get('phone');
-
   if (!phone) {
     return corsResponse(jsonResponse({ error: '缺少 phone 参数' }, 400));
   }
-
   const key = `pending:${phone}`;
   const data = await env.KV.get(key);
-
   if (data) {
     const command = JSON.parse(data);
     return corsResponse(jsonResponse(command));
   }
-
   return corsResponse(jsonResponse({ action: '' }));
 }
-
 async function handleAck(request: Request, env: Env): Promise<Response> {
   const body = await request.json<{ phone: string }>();
-
   if (!body.phone) {
     return corsResponse(jsonResponse({ success: false, error: '缺少 phone' }, 400));
   }
-
   await env.KV.delete(`pending:${body.phone}`);
-
   return corsResponse(jsonResponse({ success: true }));
 }
-
 async function handleListPhones(request: Request, env: Env): Promise<Response> {
   const authError = checkAuth(request, env);
   if (authError) return authError;
-
   const list = await env.KV.list({ prefix: 'pending:' });
   const phones = [];
-
   for (const item of list.keys) {
     const data = await env.KV.get(item.name);
     if (data) {
@@ -157,44 +125,33 @@ async function handleListPhones(request: Request, env: Env): Promise<Response> {
       });
     }
   }
-
   return corsResponse(jsonResponse({ phones }));
 }
-
 async function handleClear(request: Request, env: Env): Promise<Response> {
   const authError = checkAuth(request, env);
   if (authError) return authError;
-
   const body = await request.json<{ phone: string }>();
   if (!body.phone) {
     return corsResponse(jsonResponse({ success: false, error: '缺少 phone' }, 400));
   }
-
   await env.KV.delete(`pending:${body.phone}`);
   await env.KV.delete(`phone:${body.phone}`);
-
   return corsResponse(jsonResponse({ success: true }));
 }
-
 async function handleClearAll(request: Request, env: Env): Promise<Response> {
   const authError = checkAuth(request, env);
   if (authError) return authError;
-
   const list = await env.KV.list({ prefix: 'pending:' });
   for (const item of list.keys) {
     await env.KV.delete(item.name);
   }
-
   const phoneList = await env.KV.list({ prefix: 'phone:' });
   for (const item of phoneList.keys) {
     await env.KV.delete(item.name);
   }
-
   return corsResponse(jsonResponse({ success: true, cleared: list.keys.length }));
 }
-
 // ===== 工具函数 =====
-
 function checkAuth(request: Request, env: Env): Response | null {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
   if (!token || token !== env.AUTH_TOKEN) {
@@ -202,14 +159,12 @@ function checkAuth(request: Request, env: Env): Response | null {
   }
   return null;
 }
-
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
 function corsResponse(res: Response): Response {
   const headers = new Headers(res.headers);
   headers.set('Access-Control-Allow-Origin', '*');
@@ -217,9 +172,7 @@ function corsResponse(res: Response): Response {
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   return new Response(res.body, { status: res.status, headers });
 }
-
 // ===== Dashboard HTML =====
-
 const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -265,7 +218,6 @@ label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-w
   <div class="card">
     <h1>Find Phone Tool</h1>
     <div class="subtitle">通过子域名中继查找手机</div>
-
     <div class="section-title">发送查找通知</div>
     <label>目标手机名称</label>
     <input type="text" id="targetPhone" placeholder="如: my-phone">
@@ -279,13 +231,11 @@ label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-w
     <input type="number" id="duration" value="30" min="5" max="120">
     <button class="btn btn-green" onclick="sendNotify()">发送通知</button>
   </div>
-
   <div class="card">
     <div class="section-title">待执行命令</div>
     <div id="phoneList"><div class="empty">加载中...</div></div>
     <button class="btn btn-red" style="margin-top:12px" onclick="clearAll()">清除所有命令</button>
   </div>
-
   <div class="card">
     <div class="section-title">设置</div>
     <label>管理 Token（用于 Dashboard API）</label>
@@ -297,29 +247,24 @@ label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-w
   </div>
 </div>
 <div class="toast" id="toast"></div>
-
 <script>
 let selectedAction = 'find';
 let token = localStorage.getItem('fp_token') || '';
-
 function selectAction(el) {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   selectedAction = el.dataset.action;
 }
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
   setTimeout(() => t.style.display = 'none', 2000);
 }
-
 async function sendNotify() {
   const target = document.getElementById('targetPhone').value.trim();
   const duration = parseInt(document.getElementById('duration').value) || 30;
   if (!target) { showToast('请输入目标手机名称'); return; }
-
   const res = await fetch('/notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -329,7 +274,6 @@ async function sendNotify() {
   if (data.success) { showToast(data.message); refreshList(); }
   else { showToast(data.error || '发送失败'); }
 }
-
 async function refreshList() {
   if (!token) { document.getElementById('phoneList').innerHTML = '<div class="empty">请先保存 Token</div>'; return; }
   const res = await fetch('/api/phones', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -346,7 +290,6 @@ async function refreshList() {
     return '<div class="phone-item"><div><div class="phone-name">' + p.name + '</div><div class="phone-time">' + timeStr + '</div></div><div style="text-align:right"><span class="' + badgeClass + '">' + p.action + ' / ' + p.duration + 's</span><br><button style="margin-top:4px;padding:4px 8px;font-size:12px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;border-radius:4px;cursor:pointer" onclick="clearPhone(\\'' + p.name + '\\')">清除</button></div></div>';
   }).join('');
 }
-
 async function clearPhone(name) {
   await fetch('/api/clear', {
     method: 'POST',
@@ -356,7 +299,6 @@ async function clearPhone(name) {
   showToast('已清除 ' + name);
   refreshList();
 }
-
 async function clearAll() {
   if (!token) { showToast('请先保存 Token'); return; }
   await fetch('/api/clear-all', {
@@ -366,14 +308,12 @@ async function clearAll() {
   showToast('已清除所有命令');
   refreshList();
 }
-
 function saveToken() {
   token = document.getElementById('authToken').value.trim();
   localStorage.setItem('fp_token', token);
   showToast('Token 已保存');
   refreshList();
 }
-
 // 自动加载
 if (token) document.getElementById('authToken').value = token;
 refreshList();
