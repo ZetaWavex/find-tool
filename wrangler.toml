@@ -5,7 +5,7 @@ compatibility_date = "2024-09-25"
 # KV存储，项目实际使用
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "0d070f2c9c5e477c9c69557ba81f5117"
 
 # 环境变量，AUTH_TOKEN 修改为你自己的密钥
 [vars]
